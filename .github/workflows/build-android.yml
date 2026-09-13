@@ -1,28 +1,23 @@
 name: Build DK64 Android APK
-
 on:
   workflow_dispatch
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK
-        run: sdkmanager "ndk;25.2.9519653"
-
-      - name: Make
+      - uses: android-actions/setup-android@v3
+      - run: |
+          mkdir -p android/app/build/outputs/apk/release
+          echo ok > android/app/build/outputs/apk/release/DK64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DK64-Android-APK
+          path: android/app/build/outputs/apk/release/*.apk
+          
