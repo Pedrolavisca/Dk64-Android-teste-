@@ -1,6 +1,8 @@
-name: Build DK64 Android APK
+name: Build DK64 Android APK REAL
+
 on:
-  workflow_dispatch
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -8,16 +10,67 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-java@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - run: |
-          mkdir -p android/app/build/outputs/apk/release
-          echo ok > android/app/build/outputs/apk/release/DK64.apk
-      - uses: actions/upload-artifact@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK and CMake
+        run: sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Setup Android Project
+        run: |
+          # Cria estrutura Android se não existir
+          mkdir -p android/app/src/main
+          cat > android/settings.gradle <<'EOF'
+          include ':app'
+          EOF
+          cat > android/build.gradle <<'EOF'
+          buildscript {
+            dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+            repositories { google(); mavenCentral() }
+          }
+          EOF
+          cat > android/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+            namespace 'com.dk64.port'
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.dk64.port"
+              minSdk 24
+              targetSdk 34
+              versionCode 1
+              versionName "1.0"
+              ndk { abiFilters "arm64-v8a" }
+              externalNativeBuild {
+                cmake {
+                  arguments "-DANDROID_STL=c++_shared", "-DANDROID_PLATFORM=android-24"
+                }
+              }
+            }
+            externalNativeBuild { cmake { path "../../CMakeLists.txt" } }
+            buildTypes { release { minifyEnabled false } }
+          }
+          dependencies {}
+          EOF
+          mkdir -p android/app/src/main
+          echo '<manifest package="com.dk64.port"/>' > android/app/src/main/AndroidManifest.xml
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew || (gradle wrapper && chmod +x gradlew)
+          ./gradlew assembleDebug --stacktrace || gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: DK64-Android-APK
-          path: android/app/build/outputs/apk/release/*.apk
+          name: DK64-Android-REAL
+          path: android/app/build/outputs/apk/**/*.apk
           
